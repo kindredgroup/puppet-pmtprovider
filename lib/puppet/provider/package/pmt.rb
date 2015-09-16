@@ -47,7 +47,16 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
   end
 
   def install
-    pmt_install false
+    is = self.query
+    if is
+      if Puppet::Util::Package.versioncmp(@resource[:ensure], is[:ensure]) < 0
+        pmt_install true
+      else
+        pmt_install false
+      end
+    else
+      pmt_install false
+    end
   end
 
   def uninstall
@@ -76,20 +85,7 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
   end
 
   def update
-    is = self.query
-    case @resource[:ensure]
-    when true, false, Symbol
-      self.debug "Upgrading module #{@resource[:name]} from version #{is[:ensure]} to 'latest'"
-      pmt_upgrade
-    else
-      if Puppet::Util::Package.versioncmp(@resource[:ensure], is[:ensure]) > 0
-        self.debug "Upgrading module #{@resource[:name]} from version #{is[:ensure]} to #{@resource[:ensure]}"
-        pmt_upgrade
-      else Puppet::Util::Package.versioncmp(@resource[:ensure], is[:ensure]) < 0
-        self.debug "Downgrading module #{@resource[:name]} from version #{is[:ensure]} to #{@resource[:ensure]}"
-        pmt_install true
-      end
-    end
+    pmt_upgrade
   end
 
   def pmt_list
@@ -115,10 +111,9 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
     puppetcmd *args
   end
 
-  def pmt_upgrade force
+  def pmt_upgrade
     args = ["module", "upgrade"]
     args.push(join_options(@resource[:install_options]))
-    args << "--force" if force
     args << @resource[:name]
     args << "--version=#{@resource[:ensure]}" unless @resource[:ensure].is_a? Symbol
     puppetcmd *args

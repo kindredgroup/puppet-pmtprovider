@@ -25,7 +25,8 @@ the puppet module api directly in code was that the puppet execution responsible
 for ensuring state could inadvertently carry over configuration that affects
 what the state should look like. For example, --module_repository is set
 based on configuration or command line arguments to the puppet agent | apply
-execution, by shelling out the puppet command we have more flexibility in that regard.
+execution, by shelling out the puppet command we have more flexibility in
+that regard since we can just parameterize the execution on our own.
 
 ## Setup
 
@@ -92,7 +93,7 @@ See usage
 
 * Only tested on OS/X Yosemite so far
 * Zero tests
-* Use on your own risk
+* Use at your own risk
 
 ## Development
 
