@@ -1,78 +1,73 @@
 require 'puppet/provider/package'
 require 'puppet/face'
+require 'yaml'
 
-Puppet::Type.type(:package).provide :pmt, :parent => Puppet::Provider::Package do
+Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Provider::Package do
 
-  desc "Manages puppet modules as packages via the Puppet Module Tool"
+  desc "Manages puppet modules as packages using the puppet module tool
 
-  has_feature :versionable, :install_options
+  This provider supports the `install_options` attribute, which allows command-line flags
+  to be passed to the execution of the puppet module tool. For example:
 
-  @@module = Puppet::Face[:module, :current]
+  package { 'puppetlabs-apache':
+    ensure => present,
+    provider => pmt,
+    install_options [
+      {
+        '--modulepath' => '/custom/module/path'
+      },
+      {
+        '--module_repository' => 'https://forge.example.com'
+      }
+    ]
+  }
+  "
+
+  has_feature :versionable
+  has_feature :install_options
+
+  commands :puppetcmd => 'puppet'
 
   def self.instances
-    # dont know how to implement this in any reliable fashion
-    # but afaik only affects "puppet resource package" reverse lookup
-    {}
+    pmtface = Puppet::Face[:module, :current]
+    pmtface.list[:modules_by_path].map do |module_path, modules|
+      modules.map do |mod|
+        {
+          :name => mod.metadata["name"],
+          :ensure => mod.metadata["version"],
+          :install_options => [{"--modulepath" => module_path}],
+          :provider => self.name
+        }
+      end
+    end.flatten.map { |x| new(x) }
   end
 
   def latest
-    options = self.class.parse_options(@resource[:install_options])
-    @@module.search(@resource[:name], options)[:answers][0]['version']
+    pmt_search[:answers][0]['version']
   end
 
   def install
-    should = @resource.should(:ensure)
-    options = self.class.parse_options(@resource[:install_options])
-    if options.has_key? :modulepath
-      options[:target_dir] = options[:modulepath]
-    end
-    case should
-    when true, false, Symbol
-      @@module.install(@resource[:name], options)
-    else
-      options[:version] = @resource[:ensure]
-      is = self.query
-      if is
-        if Puppet::Util::Package.versioncmp(should, is[:ensure]) > 0
-          self.debug "Upgrading module #{@resource[:name]} from version #{is[:ensure]} to #{should}"
-          @@module.upgrade(@resource[:name], options)
-        else Puppet::Util::Package.versioncmp(should, is[:ensure]) < 0
-          self.debug "Downgrading module #{@resource[:name]} from version #{is[:ensure]} to #{should}"
-          options[:force] = true
-          @@module.install(@resource[:name], options)
-        end
-      end
-    end
+    pmt_install false
   end
 
   def uninstall
-    @@module.uninstall(@resource[:name], self.class.parse_options(@resource[:install_options]))
-  end
-
-  def self.parse_options install_options
-    opts = {}
-    install_options.each do |x|
-      x.each do |key, value|
-        opts[key.to_sym] = value
-      end
-    end
-    opts
+    pmt_uninstall
   end
 
   def query
     # http://stackoverflow.com/questions/20283152/puppet-package-provider-what-is-the-query-method-for
     # also look in rpm.rb provider in core puppet
-    @property_hash.update(self.class.query_hash(@resource))
+    @property_hash.update(query_hash)
     @property_hash.dup
   end
 
-  def self.query_hash rs
+  def query_hash
     response = {}
-    @@module.list(self.parse_options(rs[:install_options]))[:modules_by_path].each do |module_path, modules|
-      modules.each do |mod|
-        if mod.forge_name == rs[:name]
-          response[:instance] = "#{mod.forge_name}-#{mod.version}"
-          response[:ensure] = mod.version
+    pmt_list[:modules_by_path].each do |module_path, mod|
+      mod.each do |x|
+        if x.metadata["name"] == @resource[:name] || x.metadata["forge_name"] == @resource[:name]
+          response[:instance] = "#{@resource[:name]}-#{x.metadata['version']}"
+          response[:ensure] = x.metadata["version"]
           response[:provider] = self.name
         end
       end
@@ -81,7 +76,59 @@ Puppet::Type.type(:package).provide :pmt, :parent => Puppet::Provider::Package d
   end
 
   def update
-    self.install
+    is = self.query
+    case @resource[:ensure]
+    when true, false, Symbol
+      self.debug "Upgrading module #{@resource[:name]} from version #{is[:ensure]} to 'latest'"
+      pmt_upgrade
+    else
+      if Puppet::Util::Package.versioncmp(@resource[:ensure], is[:ensure]) > 0
+        self.debug "Upgrading module #{@resource[:name]} from version #{is[:ensure]} to #{@resource[:ensure]}"
+        pmt_upgrade
+      else Puppet::Util::Package.versioncmp(@resource[:ensure], is[:ensure]) < 0
+        self.debug "Downgrading module #{@resource[:name]} from version #{is[:ensure]} to #{@resource[:ensure]}"
+        pmt_install true
+      end
+    end
+  end
+
+  def pmt_list
+    args = ["module", "list", "--render-as=yaml"]
+    args.push(join_options(@resource[:install_options]))
+    YAML.load(puppetcmd *args)
+  end
+
+  def pmt_search
+    args = ["module", "search", "--render-as=yaml"]
+    args.push(join_options(@resource[:install_options]))
+    args << "--log_level=crit"  # because search has some info logging that ruins the yaml format
+    args << @resource[:name]
+    YAML.load(puppetcmd *args)
+  end
+
+  def pmt_install force
+    args = ["module", "install"]
+    args.push(join_options(@resource[:install_options]))
+    args << "--force" if force
+    args << @resource[:name]
+    args << "--version=#{@resource[:ensure]}" unless @resource[:ensure].is_a? Symbol
+    puppetcmd *args
+  end
+
+  def pmt_upgrade force
+    args = ["module", "upgrade"]
+    args.push(join_options(@resource[:install_options]))
+    args << "--force" if force
+    args << @resource[:name]
+    args << "--version=#{@resource[:ensure]}" unless @resource[:ensure].is_a? Symbol
+    puppetcmd *args
+  end
+
+  def pmt_uninstall
+    args = ["module", "uninstall"]
+    args.push(join_options(@resource[:install_options]))
+    args << @resource[:name]
+    puppetcmd *args
   end
 
 end
