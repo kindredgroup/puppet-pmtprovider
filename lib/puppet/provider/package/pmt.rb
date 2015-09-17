@@ -29,17 +29,7 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
   commands :puppetcmd => 'puppet'
 
   def self.instances
-    pmtface = Puppet::Face[:module, :current]
-    pmtface.list[:modules_by_path].map do |module_path, modules|
-      modules.map do |mod|
-        {
-          :name => mod.metadata["name"],
-          :ensure => mod.metadata["version"],
-          :install_options => [{"--modulepath" => module_path}],
-          :provider => self.name
-        }
-      end
-    end.flatten.map { |x| new(x) }
+    {}
   end
 
   def latest
@@ -55,6 +45,8 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
   def install
     if @property_hash[:ensure] == :absent
       pmt_install false
+    elsif @resource[:ensure] == :latest
+      pmt_upgrade
     elsif Puppet::Util::Package.versioncmp(@resource[:ensure], @property_hash[:ensure]) < 0
       pmt_install true
     elsif Puppet::Util::Package.versioncmp(@resource[:ensure], @property_hash[:ensure]) > 0
