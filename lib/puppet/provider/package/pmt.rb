@@ -43,17 +43,17 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
   end
 
   def latest
-    pmt_search[:answers][0]['version']
+    pmt_search[:answers].select { |a|
+      a["current_release"]["metadata"]["name"] == @resource[:name]
+    }[0]["current_release"]["metadata"]["version"]
   end
 
   def install
     is = self.query
-    if is
-      if Puppet::Util::Package.versioncmp(@resource[:ensure], is[:ensure]) < 0
-        pmt_install true
-      else
-        pmt_install false
-      end
+    if is[:ensure] == :absent
+      pmt_install false
+    elsif Puppet::Util::Package.versioncmp(@resource[:ensure], is[:ensure]) < 0
+      pmt_install true
     else
       pmt_install false
     end
