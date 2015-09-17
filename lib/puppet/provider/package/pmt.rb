@@ -44,16 +44,21 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
 
   def latest
     pmt_search[:answers].select { |a|
-      a["current_release"]["metadata"]["name"] == @resource[:name]
+      if @resource[:name].include?("/") && a["current_release"]["metadata"].has_key?("forge_name")
+        a["current_release"]["metadata"]["forge_name"] == @resource[:name]
+      elsif @resource[:name].include?("-") && a["current_release"]["metadata"].has_key?("name")
+        a["current_release"]["metadata"]["name"] == @resource[:name]
+      end
     }[0]["current_release"]["metadata"]["version"]
   end
 
   def install
-    is = self.query
-    if is[:ensure] == :absent
+    if @property_hash[:ensure] == :absent
       pmt_install false
-    elsif Puppet::Util::Package.versioncmp(@resource[:ensure], is[:ensure]) < 0
+    elsif Puppet::Util::Package.versioncmp(@resource[:ensure], @property_hash[:ensure]) < 0
       pmt_install true
+    elsif Puppet::Util::Package.versioncmp(@resource[:ensure], @property_hash[:ensure]) > 0
+      pmt_upgrade
     else
       pmt_install false
     end
@@ -74,7 +79,13 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
     response = {}
     pmt_list[:modules_by_path].each do |module_path, mod|
       mod.each do |x|
-        if x.metadata["name"] == @resource[:name] || x.metadata["forge_name"] == @resource[:name]
+        keyname = ""
+        if @resource[:name].include?("/") && x.metadata.has_key?("forge_name")
+          keyname = "forge_name"
+        elsif @resource[:name].include?("-") && x.metadata.has_key?("name")
+          keyname = "name"
+        end
+        if x.metadata[keyname] == @resource[:name]
           response[:instance] = "#{@resource[:name]}-#{x.metadata['version']}"
           response[:ensure] = x.metadata["version"]
           response[:provider] = self.name
@@ -85,7 +96,8 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
   end
 
   def update
-    pmt_upgrade
+    # ensure => latest will send you here regardless of whetever anything is installed or not
+    self.install
   end
 
   def pmt_list
