@@ -1,3 +1,5 @@
 spec/fixtures
 *.swp
 *.lock
+.bundle/
+pkg/
