@@ -1,11 +1,41 @@
 {
   "name": "unibet-pmtprovider",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "author": "unibet",
   "summary": "Custom package provider for managing puppet modules",
   "license": "Apache-2.0",
   "source": "https://github.com/unibet/puppet-pmtprovider.git",
   "project_page": "https://github.com/unibet/puppet-pmtprovider",
   "issues_url": "https://github.com/unibet/puppet-pmtprovider/issues",
+  "operatingsystem_support": [
+    {
+      "operatingsystem": "RedHat",
+      "operatingsystemrelease": [
+        "6"
+      ]
+    },
+    {
+      "operatingsystem": "CentOS",
+      "operatingsystemrelease": [
+        "6"
+      ]
+    },
+    {
+      "operatingsystem": "Darwin",
+      "operatingsystemrelease": [
+        "14.5.0"
+      ]
+    }
+  ],
+  "requirements": [
+  {
+    "name": "pe",
+    "version_requirement": "3.x"
+  },
+  {
+    "name": "puppet",
+    "version_requirement": ">=3.7.0 <5.0.0"
+  }
+  ],
   "dependencies": []
 }

@@ -116,7 +116,7 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
   end
 
   def pmt_upgrade
-    args = ["module", "upgrade"]
+    args = ["module", "upgrade", "--ignore-changes"]
     args.push(join_options(@resource[:install_options]))
     args << @resource[:name]
     args << "--version=#{@resource[:ensure]}" unless @resource[:ensure].is_a? Symbol

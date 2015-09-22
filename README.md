@@ -91,7 +91,6 @@ See usage
 
 ## Limitations
 
-* Only tested on OS/X Yosemite so far
 * Zero tests
 * Use at your own risk
 
