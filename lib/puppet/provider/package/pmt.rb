@@ -45,14 +45,16 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
   def install
     if @property_hash[:ensure] == :absent
       pmt_install false
-    elsif @resource[:ensure] == :latest
-      pmt_upgrade
-    elsif Puppet::Util::Package.versioncmp(@resource[:ensure], @property_hash[:ensure]) < 0
-      pmt_install true
-    elsif Puppet::Util::Package.versioncmp(@resource[:ensure], @property_hash[:ensure]) > 0
-      pmt_upgrade
     else
+      pmt_install true
+    end
+  end
+
+  def update
+    if @property_hash[:ensure] == :absent
       pmt_install false
+    else
+      pmt_upgrade
     end
   end
 
@@ -87,47 +89,47 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
     response
   end
 
-  def update
-    # ensure => latest will send you here regardless of whetever anything is installed or not
-    self.install
+  def install_options
+    join_options(@resource[:install_options])
   end
 
   def pmt_list
-    args = ["module", "list", "--render-as=yaml"]
-    args.push(join_options(@resource[:install_options]))
-    YAML.load(puppetcmd *args)
+    cmd = [command(:puppetcmd), "module", "list", "--render-as=yaml"]
+    cmd.push(install_options.reject { |item| ['--force', '--ignore-dependencies'].include? item })
+    output = execute(cmd)
+    YAML.load(output)
   end
 
   def pmt_search
-    args = ["module", "search", "--render-as=yaml"]
-    args.push(join_options(@resource[:install_options]))
-    args << "--log_level=crit"  # because search has some info logging that ruins the yaml format
-    args << @resource[:name]
-    YAML.load(puppetcmd *args)
+    cmd = [command(:puppetcmd), "module", "search", "--render-as=yaml"]
+    cmd.push(install_options.reject { |item| ['--force', '--ignore-dependencies'].include? item })
+    cmd << "--log_level=crit"  # because search has some info logging that ruins the yaml format
+    cmd << @resource[:name]
+    YAML.load(execute(cmd))
   end
 
   def pmt_install force
-    args = ["module", "install"]
-    args.push(join_options(@resource[:install_options]))
-    args << "--force" if force
-    args << @resource[:name]
-    args << "--version=#{@resource[:ensure]}" unless @resource[:ensure].is_a? Symbol
-    puppetcmd *args
+    cmd = [command(:puppetcmd), "module", "install"]
+    cmd.push(install_options)
+    cmd << "--force" if force && !cmd.include?("--force")
+    cmd << @resource[:name]
+    cmd << "--version=#{@resource[:ensure]}" unless @resource[:ensure].is_a? Symbol
+    execute(cmd)
   end
 
   def pmt_upgrade
-    args = ["module", "upgrade", "--ignore-changes"]
-    args.push(join_options(@resource[:install_options]))
-    args << @resource[:name]
-    args << "--version=#{@resource[:ensure]}" unless @resource[:ensure].is_a? Symbol
-    puppetcmd *args
+    cmd = [command(:puppetcmd), "module", "upgrade", "--ignore-changes"]
+    cmd.push(install_options)
+    cmd << @resource[:name]
+    cmd << "--version=#{@resource[:ensure]}" unless @resource[:ensure].is_a? Symbol
+    execute(cmd)
   end
 
   def pmt_uninstall
-    args = ["module", "uninstall"]
-    args.push(join_options(@resource[:install_options]))
-    args << @resource[:name]
-    puppetcmd *args
+    cmd = [command(:puppetcmd), "module", "uninstall"]
+    cmd.push(install_options)
+    cmd << @resource[:name]
+    execute(cmd)
   end
 
 end

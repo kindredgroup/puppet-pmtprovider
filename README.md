@@ -1,5 +1,9 @@
 # pmtprovider
 
+[![Build Status](https://secure.travis-ci.org/unibet/puppet-pmtprovider.png)](http://travis-ci.org/unibet/puppet-pmtprovider)
+[![Puppet Forge](https://img.shields.io/puppetforge/v/unibet/pmtprovider.svg)](https://forge.puppetlabs.com/unibet/pmtprovider)
+[![Puppet Forge](https://img.shields.io/puppetforge/f/unibet/pmtprovider.svg)](https://forge.puppetlabs.com/unibet/pmtprovider)
+
 #### Table of Contents
 
 1. [Overview](#overview)
@@ -88,11 +92,6 @@ The provider also supports version pinning and the use of symbols such as latest
 ## Reference
 
 See usage
-
-## Limitations
-
-* Zero tests
-* Use at your own risk
 
 ## Development
 
