@@ -65,11 +65,6 @@ Puppet::Type.type(:package).provide :pmt, :source => :pmt, :parent => Puppet::Pr
   def query
     # http://stackoverflow.com/questions/20283152/puppet-package-provider-what-is-the-query-method-for
     # also look in rpm.rb provider in core puppet
-    @property_hash.update(query_hash)
-    @property_hash.dup
-  end
-
-  def query_hash
     response = {}
     pmt_list[:modules_by_path].each do |module_path, mod|
       mod.each do |x|
